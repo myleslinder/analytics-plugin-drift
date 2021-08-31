@@ -1,0 +1,13 @@
+{
+  "name": "analytics-plugin-drift",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "peerDependencies": {
+    "analytics": "^0.7.14"
+  },
+  "devDependencies": {
+    "analytics": "^0.7.14",
+    "prettier": "^2.3.2"
+  }
+}
