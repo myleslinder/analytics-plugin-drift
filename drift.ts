@@ -136,6 +136,14 @@ export type DriftEventPayloads = {
   ];
 };
 
+export type DriftEventName =
+  | keyof DriftEventPayloads
+  | {
+      event: keyof DriftEventPayloads;
+      track: boolean;
+      trackName: string;
+    };
+
 export type DriftEventHandler<D, P> = (data: D, payload?: P) => void;
 
 export type DriftEventHandlers = {
