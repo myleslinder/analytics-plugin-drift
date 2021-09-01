@@ -1,33 +1,68 @@
 import { AnalyticsPlugin, AnalyticsInstance } from "analytics";
-import { DriftEventHandlers, DriftEventPayloads } from "../drift";
+import {
+  DriftEventHandler,
+  DriftEventHandlers,
+  DriftEventPayloads,
+} from "../drift";
 import { assert, isBrowser } from "../utils";
 import {
+  AnalyticsDispatchedEvents,
   AnalyticsMethodParams,
   DriftPluginConfig,
-  ScriptLoadType,
 } from "./pluginTypes";
 
-function loadScript(
-  driftId: string | undefined,
-  loadType: ScriptLoadType,
-  identityType: DriftPluginConfig["identityType"],
-  setLoaded: (b: boolean) => void
-) {
-  if (loadType === "load") {
-    // load drift
-    // then set loaded to true
-  } else if (loadType === "manual") {
-    // this cannot be the best way??
-    // let id = setInterval(() => {
-    //   console.log("check", id);
-    //   if (window?.drift?.apiReady) {
-    //     setLoaded(true);
-    //     clearInterval(id);
-    //     // reconcileHistory(eventHistory);
-    //     // console.log(eventHistory);
-    //   }
-    // }, 1000);
-  }
+function loadScript() {
+  if (window.drift) return false;
+
+  !(function () {
+    const t = (window.driftt = window.drift = window.driftt || []);
+    if (!t.init) {
+      if (t.invoked) {
+        return void (
+          window.console &&
+          console.error &&
+          console.error("Drift snippet included twice.")
+        );
+      }
+      //eslint-disable-next-line  @typescript-eslint/no-extra-semi
+      (t.invoked = !0),
+        (t.methods = [
+          "identify",
+          "config",
+          "track",
+          "reset",
+          "debug",
+          "show",
+          "ping",
+          "page",
+          "hide",
+          "off",
+          "on",
+        ]),
+        (t.factory = function (e: any) {
+          return function () {
+            const n = Array.prototype.slice.call(arguments);
+            return n.unshift(e), t.push(n), t;
+          };
+        }),
+        t.methods.forEach(function (e: any) {
+          t[e] = t.factory(e);
+        }),
+        (t.load = function (t: any) {
+          const e = 3e5,
+            n = Math.ceil((new Date() as any) / e) * e,
+            o = document.createElement("script");
+          (o.type = "text/javascript"),
+            (o.async = !0),
+            (o.crossOrigin = "anonymous"),
+            (o.src = "https://js.driftt.com/include/" + n + "/" + t + ".js");
+          const i = document.getElementsByTagName("script")[0];
+          i.parentNode?.insertBefore(o, i);
+        });
+    }
+  })();
+  window.drift.SNIPPET_VERSION = "0.3.1";
+  return true;
 }
 
 const selectIdentityFunction = (
@@ -77,6 +112,35 @@ function handleEvent(
   return newHistory;
 }
 
+function registerEvent<T extends keyof DriftEventPayloads>(
+  instance: AnalyticsInstance,
+  eventName: T
+) {
+  let handler: DriftEventHandler<
+    DriftEventPayloads[T][0],
+    DriftEventPayloads[T][1]
+  > = (data, payload) => {
+    let passAlong = {
+      [!payload ? "payload" : "api"]: data,
+      ...(payload ? { payload } : {}),
+    };
+    instance.dispatch({
+      type: `drift:${eventName}`,
+      ...{ passAlong },
+    });
+  };
+  window.drift.on(eventName, handler);
+}
+
+function registerEvents(
+  instance: AnalyticsInstance,
+  events: DriftPluginConfig["events"]
+) {
+  Array.from(events || []).map(async (eventName) => {
+    return registerEvent(instance, eventName);
+  });
+}
+
 export default function analyticsDriftPlugin({
   driftId,
   identityType,
@@ -85,16 +149,14 @@ export default function analyticsDriftPlugin({
   events,
 }: DriftPluginConfig): AnalyticsPlugin {
   let isLoaded = false;
-  const scriptState = {
-    loaded: false,
-  };
-  const checkIsLoaded = () => isBrowser && isLoaded; //window?.drift?.apiReady;
+
+  const checkIsLoaded = () => isBrowser && isLoaded;
   const eventHistory: AnalyticsMethodParams[] = [];
 
   return {
     name: "drift-plugin",
     config: {},
-    EVENTS: Array.from(events || []).reduce<{ [k: string]: string }>(
+    EVENTS: Array.from(events || []).reduce<AnalyticsDispatchedEvents | {}>(
       (eventsObj, eventName) => {
         return { ...eventsObj, [`drift:${eventName}`]: eventName };
       },
@@ -102,8 +164,27 @@ export default function analyticsDriftPlugin({
     ),
     initialize: (p: AnalyticsMethodParams) => {
       console.log("init", p);
-      loadScript(driftId, scriptLoad, identityType, (b) => (isLoaded = b));
-      // register event handlers
+      if (scriptLoad === "load") {
+        const loaded = loadScript();
+        if (loaded) {
+          if (identityType === "userAttributes") {
+            window.drift.load(driftId);
+          } else {
+            const identificationEvent = eventHistory.find(
+              ({ payload: { type } }) => type === "identify"
+            );
+            if (identificationEvent) {
+              callBaseMethod(identificationEvent.payload, identityType);
+              window.drift.load(driftId);
+            }
+          }
+
+          window.drift.on("ready", () => {
+            isLoaded = true;
+            registerEvents(p.instance, events);
+          });
+        }
+      }
     },
     ...(page
       ? {
@@ -122,23 +203,13 @@ export default function analyticsDriftPlugin({
       handleEvent(checkIsLoaded(), p, eventHistory, identityType);
     },
     loaded: () => {
-      return isBrowser; //&& !!window?.drift?.apiReady;
+      return isBrowser;
+      //&& (scriptLoad === "manual" ? true : isLoaded);
     },
     methods: {
       ready(this: { instance: AnalyticsInstance }) {
         isLoaded = true;
-      },
-      events(
-        this: { instance: AnalyticsInstance },
-        eventHandlers: DriftEventHandlers
-      ) {
-        const instance = this.instance;
-        instance.once("ready", () => {
-          let keys = Object.keys(eventHandlers) as (keyof DriftEventPayloads)[];
-          keys.forEach((eventName) => {
-            window.drift.on(eventName, eventHandlers[eventName]);
-          });
-        });
+        registerEvents(this.instance, events);
       },
     },
   };

@@ -5,7 +5,7 @@ import { DriftEventHandlers, DriftEventPayloads } from "../drift";
 // or we poll for the lib's presence once a second
 export type ScriptLoadType = "load" | "manual";
 type BaseDriftPluginConfig = {
-  driftId?: string;
+  driftId: string;
   scriptLoad?: ScriptLoadType;
   page?: boolean;
   events?: Set<keyof DriftEventPayloads>;
@@ -59,6 +59,12 @@ export type AnalyticsMethodParams = {
   config: {};
   plugins: {};
   payload: TrackPayload | PagePayload | IdentifyPayload;
+};
+
+type AnalyticsDispatchedEventKey = `drift:${keyof DriftEventPayloads}`;
+
+export type AnalyticsDispatchedEvents = {
+  [K in AnalyticsDispatchedEventKey]: boolean;
 };
 
 //export type DriftBaseMethod = (payload: AnalyticsMethodParams["payload"], identityType?: DriftPluginConfig["identityType"]) => {}

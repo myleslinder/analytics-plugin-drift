@@ -136,7 +136,7 @@ export type DriftEventPayloads = {
   ];
 };
 
-type DriftEventHandler<D, P> = (data: D, payload?: P) => void;
+export type DriftEventHandler<D, P> = (data: D, payload?: P) => void;
 
 export type DriftEventHandlers = {
   [K in keyof DriftEventPayloads]?: DriftEventHandler<
@@ -149,7 +149,9 @@ export type DriftEventHandlers = {
 declare global {
   interface Window {
     drift: {
+      SNIPPET_VERSION: string;
       identify: any;
+      load: (key: string) => void;
       config: any;
       track: any;
       reset: any;
@@ -189,5 +191,6 @@ declare global {
       apiReady: boolean;
       chatReady: boolean;
     };
+    driftt: any;
   }
 }
