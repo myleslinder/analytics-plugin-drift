@@ -1,6 +1,20 @@
 import Analytics from "analytics";
-import { DriftEventPayloads } from "./drift";
+import {
+  DriftEventHandlers,
+  DriftEventName,
+  DriftEventPayloads,
+  DriftPluginEventHandlers,
+} from "./drift";
 import analyticsDriftPlugin from "./plugin/analyticsDriftPlugin";
+
+const driftEventPlugin: DriftPluginEventHandlers = {
+  "campaign:click": ({ eventPayload: { payload } }) => {},
+  startConversation: (a) => {
+    // track
+    // maybe change something about UI?
+    // maybe perform some kind of side effect
+  },
+};
 
 const analytics = Analytics({
   app: `Test-App`,

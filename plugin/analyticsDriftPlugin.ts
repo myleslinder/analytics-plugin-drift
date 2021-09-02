@@ -91,8 +91,8 @@ export default function analyticsDriftPlugin({
         ...(payload ? { payload } : {}),
       };
       instance.dispatch({
-        type: `drift:${eventName}`,
-        ...{ eventPayload },
+        type: eventName,
+        eventPayload,
       });
     };
     window.drift.on(eventName, handler);
@@ -113,7 +113,7 @@ export default function analyticsDriftPlugin({
     config: {},
     EVENTS: Array.from(events || []).reduce<AnalyticsDispatchedEvents | {}>(
       (eventsObj, eventName) => {
-        return { ...eventsObj, [`drift:${eventName}`]: eventName };
+        return { ...eventsObj, [eventName]: eventName };
       },
       {}
     ),

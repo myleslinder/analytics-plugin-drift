@@ -136,13 +136,25 @@ export type DriftEventPayloads = {
   ];
 };
 
-export type DriftEventName =
-  | keyof DriftEventPayloads
-  | {
-      event: keyof DriftEventPayloads;
-      track: boolean;
-      trackName: string;
-    };
+export type DriftEventName = `drift:${keyof DriftEventPayloads}`;
+
+// | {
+//     event: keyof DriftEventPayloads;
+//     track: boolean;
+//     trackName: string;
+//   };
+
+type DriftPluginEventHandler<K, D, P> = (arg: {
+  type: K;
+  eventPayload: { payload: D; meta: P };
+}) => void;
+export type DriftPluginEventHandlers = {
+  [K in keyof DriftEventPayloads]?: DriftPluginEventHandler<
+    K,
+    DriftEventPayloads[K][0],
+    DriftEventPayloads[K][1]
+  >;
+};
 
 export type DriftEventHandler<D, P> = (data: D, payload?: P) => void;
 

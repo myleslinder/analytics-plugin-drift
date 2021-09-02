@@ -2,13 +2,15 @@
 
 This library exports the Drift plugin for the [analytics package](https://github.com/DavidWells/analytics).
 
-After initializing analytics with this Drift plugin, data will be sent to Drift whenever `analytics.track`, `analytics.identify`, or (optionally) `analytics.page` are called. For `analytics.identify()` this plugin supports signed identities, regular identities, or just setting user attributes.
+After initializing analytics with this Drift plugin, data will be sent to Drift whenever `analytics.track`, `analytics.identify`, or (optionally) `analytics.page` are called. For `analytics.identify()` this plugin supports [signed identities](https://devdocs.drift.com/docs/securing-drift-on-your-site-using-signed-identities), regular identities, or just setting user attributes.
 
 ## Installation
 
 ```bash
     npm install analytics analytics-plugin-drift
+
     # or with yarn
+
     yarn add analytics analytics-plugin-drift
 ```
 
@@ -19,6 +21,7 @@ This plugin works in the browser and is a no-op on the server.
 Example usage:
 
 ```js
+import Analytics from "analytics";
 import analyticsDriftPlugin from "analytics-plugin-drift";
 
 const analytics = Analytics({
@@ -39,6 +42,7 @@ const analytics = Analytics({
 **TypeScript**
 
 ```ts
+import Analytics from "analytics";
 import analyticsDriftPlugin, { DriftEventName } from "analytics-plugin-drift";
 
 const analytics = Analytics({
@@ -110,22 +114,49 @@ If you use the 'signed' `identityType` then you must provide a function to `jwtR
 
 If using `userAttributes` there are no additional considerations.
 
-### Registering Event Handlers with Drift
+### Handling Drift Events
 
-This plugin supports dispatching drift-specific events [LINK], such as "conversationStarted", to the rest of the plugin system. This allows you to handle the events as you see fit, for example to call `analytics.track()` with the event payload.
-
-**The events dispatched are prepended with `drift:`** so the drift "conversationStarted" event will be dispatched as `drift:conversationStarted`. This is to avoid event name collisions in the analytics event namespace.
+This plugin supports dispatching drift-specific events [LINK], such as "startConversation", to the rest of the plugin system. This allows you to handle the events as you see fit, for example to call `analytics.track()` with the event payload.
 
 To have a particular event be dispatched simply include the event name in the Set provided to the `events` config option.
 
+#### Listening to events from the Analytics instance
+
+You can listen to the drift events you include in the config using the `.on()` and `.once()` analytics instance listeners directly in your app code.
+
+```js
+/* import analytic instance in your app code */
+import analytics from '/src/analytics'
+
+analytics.on('startConversation', () => {
+  // do something
+})
+
+analytics.once('campaign:click', (({ eventPayload: { payload } })) => {
+  //payload is specific to the event
+})
+
+/* Clean up events */
+const remove = analytics.on('tabHidden', () => {/* logic */})
+// Call remove() to detach listener
+remove()
+```
+
 #### Example Plugin to React to Drift Events
 
-```ts
-import analyticsDriftPlugin from "analytics-plugin-drift";
+Instead of listening with `.on()` or `.once()`, you can create plugins to also react to drift events.
 
-const driftEventPlugin = {
-  "drfit:conversationStarted": ({ instance, payload }) => {
-    instance.track("drift_conversation_started", {
+If you're using TypeScript the arguments supported are different for each event.
+
+```ts
+import Analytics from "analytics";
+import analyticsDriftPlugin, {
+  DriftPluginEventHandlers,
+} from "analytics-plugin-drift";
+
+const driftEventPlugin: DriftPluginEventHandlers = {
+  "campaign:click": ({ instance, payload }) => {
+    instance.track("drift_campaign_click", {
       ...payload,
     });
   },
@@ -139,7 +170,7 @@ const analytics = Analytics({
     analyticsDriftPlugin({
       identityType: "userAttributes",
       scriptLoad: "load",
-      events: new Set(["conversationStarted"]),
+      events: new Set(["campaign:click"]),
     }),
     driftEventPlugin,
   ],
