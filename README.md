@@ -154,6 +154,5 @@ const analytics = Analytics({
 
   - should these auto forward? should they be dispatched? should you provide an object with methods?
 
-- [] handle secured identities
 - [] determine best ready() api
 - [] add an option to not pass along the history if manual load

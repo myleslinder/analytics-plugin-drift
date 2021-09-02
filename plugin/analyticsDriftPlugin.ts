@@ -119,7 +119,6 @@ export default function analyticsDriftPlugin({
       {}
     ),
     initialize: (p: AnalyticsMethodParams) => {
-      console.log("init", p);
       if (scriptLoad === "load") {
         const loaded = loadScript();
         if (loaded) {
@@ -160,17 +159,14 @@ export default function analyticsDriftPlugin({
     ...(page
       ? {
           page: (p: AnalyticsMethodParams) => {
-            console.log("PAGE", p);
             eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
           },
         }
       : {}),
     track: (p: AnalyticsMethodParams) => {
-      console.log("track", p);
       eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
     },
     identify: (p: AnalyticsMethodParams) => {
-      console.log("identify", p);
       eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
     },
     loaded: () => {
