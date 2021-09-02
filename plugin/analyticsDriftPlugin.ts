@@ -6,6 +6,7 @@ import {
   AnalyticsDispatchedEvents,
   AnalyticsMethodParams,
   DriftPluginConfig,
+  SecureDriftPluginConfig,
 } from "./pluginTypes";
 
 const selectIdentityFunction = (
@@ -17,13 +18,37 @@ const selectIdentityFunction = (
 
 function callBaseMethod(
   payload: AnalyticsMethodParams["payload"],
-  identityType?: DriftPluginConfig["identityType"]
+  identity?: {
+    type: DriftPluginConfig["identityType"];
+    jwtResolver?: SecureDriftPluginConfig["jwtResolver"];
+  }
 ) {
   assert(window.drift);
   if (payload.type === "page") {
     window.drift.page();
   } else if (payload.type === "identify") {
-    selectIdentityFunction(identityType ?? "userAttributes")(payload.traits);
+    if (!identity) {
+      console.error("No identity info");
+      return;
+    }
+    const identityFunction = selectIdentityFunction(identity.type);
+    if (identity.type !== "userAttributes") {
+      if (identity.type === "secured") {
+        if (!identity.jwtResolver) {
+          throw new Error("No jwt resolver provided");
+        }
+        identity
+          .jwtResolver(payload.userId)
+          .then((jwt) =>
+            identityFunction(payload.userId, payload.traits, { jwt })
+          );
+      } else {
+        identityFunction(payload.userId, payload.traits);
+      }
+    } else {
+      identityFunction(payload.traits);
+    }
+    payload.traits;
   } else if (payload.type === "track") {
     window.drift.track(payload.properties);
   }
@@ -31,29 +56,27 @@ function callBaseMethod(
 
 function passAlongHistory(
   history: AnalyticsMethodParams[],
-  identityType?: DriftPluginConfig["identityType"]
+  identityType: DriftPluginConfig["identityType"]
 ) {
   // do this async?
-  history.forEach(({ payload }) => callBaseMethod(payload, identityType));
+  history.forEach(({ payload }) =>
+    callBaseMethod(payload, { type: identityType })
+  );
 }
 
 function handleEvent(
   loaded: boolean,
   params: AnalyticsMethodParams,
   history: AnalyticsMethodParams[],
-  identityType?: DriftPluginConfig["identityType"]
+  identityType: DriftPluginConfig["identityType"]
 ) {
   let newHistory = [...history];
   if (loaded) {
     if (history.length) {
-      // Because it's just drift it's okay that these events
-      // show up at the exact same time as opposed to their
-      // actual time. Although it is a definite drawback
-      // of using the facade.
       passAlongHistory(history, identityType);
       newHistory = [];
     }
-    callBaseMethod(params.payload, identityType);
+    callBaseMethod(params.payload, { type: identityType });
   } else {
     newHistory.push(params);
   }
@@ -92,7 +115,7 @@ function registerEvents(
 
 export default function analyticsDriftPlugin({
   driftId,
-  identityType,
+  identityType = "userAttributes",
   scriptLoad = "load",
   page = false,
   events,
@@ -126,7 +149,9 @@ export default function analyticsDriftPlugin({
               .find(({ payload: { type } }) => type === "identify");
             if (identificationEvent) {
               // directly call base method so the event history isn't flushed
-              callBaseMethod(identificationEvent.payload, identityType);
+              callBaseMethod(identificationEvent.payload, {
+                type: identityType,
+              });
               // remove all identify events so they're not duplicated
               // when the history is flushed after load
               eventHistory = eventHistory.filter(
@@ -148,13 +173,23 @@ export default function analyticsDriftPlugin({
       ? {
           page: (p: AnalyticsMethodParams) => {
             console.log("PAGE", p);
-            eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
+            eventHistory = handleEvent(
+              checkIsLoaded(),
+              p,
+              eventHistory,
+              identityType
+            );
           },
         }
       : {}),
     track: (p: AnalyticsMethodParams) => {
       console.log("track", p);
-      eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
+      eventHistory = handleEvent(
+        checkIsLoaded(),
+        p,
+        eventHistory,
+        identityType
+      );
     },
     identify: (p: AnalyticsMethodParams) => {
       console.log("identify", p);
@@ -166,10 +201,6 @@ export default function analyticsDriftPlugin({
       );
     },
     loaded: () => {
-      // as the script takes a while to load
-      // and is non essential
-      // we don't want it blocking the entire
-      // analytics instance from being ready
       return isBrowser;
     },
     methods: {

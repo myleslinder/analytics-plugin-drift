@@ -25,10 +25,10 @@ type IdentityDriftPluginConfig = {
   identityType: "identify";
   scriptLoad: "load";
 };
-type SecureDriftPluginConfig = {
+export type SecureDriftPluginConfig = {
   identityType: "secured";
   scriptLoad: "load";
-  jwtResolver: () => Promise<string>;
+  jwtResolver: (userId: string) => Promise<string>;
 };
 export type DriftPluginConfig = BaseDriftPluginConfig &
   (
@@ -52,6 +52,7 @@ type PagePayload = {
 export type IdentifyPayload = {
   type: "identify";
   traits: Metadata;
+  userId: string;
 };
 export type AnalyticsMethodParams = {
   abort: (reason: string) => void;
