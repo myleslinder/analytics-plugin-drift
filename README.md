@@ -86,9 +86,7 @@ The default export function accepts an object with the following shape:
 
 ### Script Loading Behavior
 
-Loading and initializing the Drift script is slow, and as a result this plugin will begin accepting events from `analytics` before the script has loaded, regardless of the `scriptLoad` option you provide.
-
-To ensure that no `track()`, `page()` or `identify()` calls are lost if they occur before the script is ready the plugin maintains a history of events and will forward them on to Drift once it's available.
+This plugin will begin accepting events from `analytics` on initial page load. To ensure that no `track()`, `page()` or `identify()` calls are lost if they occur before the script is ready the plugin maintains a history of events and will forward them on to Drift once it's available. With the "manual" `scriptLoad` option this allows for storing events that drift will have missed prior to intialization. With "load" as the `scriptLoad` option this allows for capturing `analytics.identify()` calls and identifying the user before loading drift.
 
 #### "load"
 
@@ -96,13 +94,17 @@ This option will begin loading the drift script upon initialization of the `anal
 
 #### "manual"
 
-This option is helpful if you're using a facade, such as [link] react-live-chat-loader, to defer the loading of the Drift script (link to chrome docs on this as well). With this option the plugin will store all events recieved until you tell the plugin that the script has loaded, using `ready()`. Once Drift is available then the event history is forwarded to drift in chronological order.
+This option is helpful if you're using a facade, such as [link] react-live-chat-loader, to defer the loading of the Drift script (link to chrome docs on this as well). With this option the plugin will store all events recieved until you tell the plugin that the script has loaded, using the plugin's `ready()` method. Once Drift is available then the event history is forwarded to drift in chronological order.
 
 One potential drawback of using a facade is that events tracked prior to loading the script will all be tracked in Drift with nearly the same timestamp as opposed to their actual time.
 
 **Calling ready()**
 
-There's a named export called setDriftReady or something like that. Call this method once the drift scrip has been loaded by some other means.
+```js
+import analytics from "src/analytics";
+
+analytics.plugins.drift.ready();
+```
 
 ### Identifying Users & Setting User Attributes
 
@@ -118,7 +120,19 @@ If using `userAttributes` there are no additional considerations.
 
 This plugin supports dispatching drift-specific events [LINK], such as "startConversation", to the rest of the plugin system. This allows you to handle the events as you see fit, for example to call `analytics.track()` with the event payload.
 
-To have a particular event be dispatched simply include the event name in the Set provided to the `events` config option.
+To have a particular event be dispatched simply include the event name in the Set provided to the `events` config option. If an event doesn't seem to be firing ensure that you've added it to the events config and provided a handler.
+
+The function signature of an event listener is:
+
+```ts
+K : DriftEventName // "campaign:clicked";
+D : DriftEventPayload<K> // DriftEventPayload<"campaign:clicked"> -> { data: { widgetVisible: boolean; isOnline: boolean; }; campaignId: number; }
+
+({ type: K;
+  instance: AnalyticsInstance;
+  eventPayload: D;
+}) => void
+```
 
 #### Listening to events from the Analytics instance
 
@@ -181,6 +195,7 @@ const analytics = Analytics({
 
 ## TODO
 
+- [] what to do about the ready event, get rid of it?
 - [] determine best events api
 
   - should these auto forward? should they be dispatched? should you provide an object with methods?

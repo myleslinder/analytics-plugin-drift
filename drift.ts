@@ -1,3 +1,5 @@
+import { AnalyticsInstance } from "analytics";
+
 type EmptyPayload = [undefined];
 type CampaignPayload = [
   {
@@ -146,6 +148,7 @@ export type DriftEventName = `drift:${keyof DriftEventPayloads}`;
 
 type DriftPluginEventHandler<K, D, P> = (arg: {
   type: K;
+  instance: AnalyticsInstance;
   eventPayload: { payload: D; meta: P };
 }) => void;
 export type DriftPluginEventHandlers = {

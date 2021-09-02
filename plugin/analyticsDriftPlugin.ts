@@ -17,7 +17,6 @@ export default function analyticsDriftPlugin({
   jwtResolver,
 }: DriftPluginConfig): AnalyticsPlugin {
   let isLoaded = false;
-
   const checkIsLoaded = () => isBrowser && isLoaded;
   let eventHistory: AnalyticsMethodParams[] = [];
 
@@ -109,7 +108,7 @@ export default function analyticsDriftPlugin({
   }
 
   return {
-    name: "drift-plugin",
+    name: "drift",
     config: {},
     EVENTS: Array.from(events || []).reduce<AnalyticsDispatchedEvents | {}>(
       (eventsObj, eventName) => {
