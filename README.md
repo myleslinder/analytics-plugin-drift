@@ -2,7 +2,7 @@
 
 This library exports the Drift plugin for the [analytics package](https://github.com/DavidWells/analytics).
 
-After initializing analytics with this Drift plugin, data will be sent to Drift whenever `analytics.track`, `analytics.identify`, or (optionally) `analytics.page` are called. For `analytics.identify()` this plugin supports secured identities, regular identities, or just setting user attributes.
+After initializing analytics with this Drift plugin, data will be sent to Drift whenever `analytics.track`, `analytics.identify`, or (optionally) `analytics.page` are called. For `analytics.identify()` this plugin supports signed identities, regular identities, or just setting user attributes.
 
 ## Installation
 
@@ -64,10 +64,10 @@ The default export function accepts an object with the following shape:
 {
   driftId: string;
   scriptLoad?: "load" | "manual"; // default is "load"
-  identityType: "userAttributes" | "identify" | "secured"
+  identityType: "userAttributes" | "identify" | "signed"
   page?: boolean; // default is false
   events?: Set<DriftEventName>;
-  jwtResolver?: (userId: string) => Promise<string>; // only relevant if identityType = "secured"
+  jwtResolver?: (userId: string) => Promise<string>; // only relevant if identityType = "signed"
 }
 ```
 
@@ -75,7 +75,7 @@ The default export function accepts an object with the following shape:
 - `scriptLoad` is either "load" or "manual"
   - "load" will have the plugin load the script
   - "manual" will not load the script and you must inform the plugin once the script is loaded
-- `identityType` is one of "userAttributes", "identify", or "secured" and indicates what Drift method should be called when `analytics.identify()` is called.
+- `identityType` is one of "userAttributes", "identify", or "signed" and indicates what Drift method should be called when `analytics.identify()` is called.
 - `page` is a boolean value whether or not to forward `analytics.page()` calls to drift. Drift automatically tracks pages, so this is for manually telling Drift that the page has changed. You likely want this to be `false`, for more information see [the Drift docs](https://devdocs.drift.com/docs/contact-properties#driftpage)
 - `events` is a set of `DriftEventName` [LINK to types] to determine which Drift events should be propagated to the rest of the plugin system [LINK to explain more]
 - `jwtResolver` is a function that returns a promise resolving to the jwt to pass along to `drift.identify()`
@@ -102,11 +102,11 @@ There's a named export called setDriftReady or something like that. Call this me
 
 ### Identifying Users & Setting User Attributes
 
-For `analytics.identify()` this plugin supports secured identities, regular identities, or just setting user attributes based on the value you provide for `identityType`.
+For `analytics.identify()` this plugin supports signed identities, regular identities, or just setting user attributes based on the value you provide for `identityType`.
 
-If you choose to use the 'secured' or 'identify' `identityType` the only valid value for `scriptLoad` is "load". This is because [`drift.identify()` needs to be called prior to calling `drift.load()`](https://devdocs.drift.com/docs/contact-properties#driftidentifyuserid-attributes) and so this plugin needs full control over when and how the drift script is loaded. If you call `analytics.identify()` anytime prior to the script being fully initialized (such as on initial page load) the plugin will identify the user prior to calling `drift.load()` to establish proper auth and identity for use in the chat experience.
+If you choose to use the 'signed' or 'identify' `identityType` the only valid value for `scriptLoad` is "load". This is because [`drift.identify()` needs to be called prior to calling `drift.load()`](https://devdocs.drift.com/docs/contact-properties#driftidentifyuserid-attributes) and so this plugin needs full control over when and how the drift script is loaded. If you call `analytics.identify()` anytime prior to the script being fully initialized (such as on initial page load) the plugin will identify the user prior to calling `drift.load()` to establish proper auth and identity for use in the chat experience.
 
-If you use the 'secured' `identityType` then you must provide a function to `jwtResolver` which will return a promise that resolves to the jwt.
+If you use the 'signed' `identityType` then you must provide a function to `jwtResolver` which will return a promise that resolves to the jwt.
 
 If using `userAttributes` there are no additional considerations.
 

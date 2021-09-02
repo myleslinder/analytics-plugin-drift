@@ -6,7 +6,6 @@ import {
   AnalyticsDispatchedEvents,
   AnalyticsMethodParams,
   DriftPluginConfig,
-  SecureDriftPluginConfig,
 } from "./pluginTypes";
 
 export default function analyticsDriftPlugin({
@@ -36,7 +35,7 @@ export default function analyticsDriftPlugin({
     } else if (payload.type === "identify") {
       const identityFunction = selectIdentityFunction();
       if (identityType !== "userAttributes") {
-        if (identityType === "secured") {
+        if (identityType === "signed") {
           if (!jwtResolver) {
             throw new Error("No jwt resolver provided");
           }

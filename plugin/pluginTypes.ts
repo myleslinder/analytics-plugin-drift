@@ -1,9 +1,9 @@
-import { AnalyticsPlugin, AnalyticsInstance, PageData } from "analytics";
-import { DriftEventHandlers, DriftEventPayloads } from "../drift";
+import { AnalyticsInstance, PageData } from "analytics";
+import { DriftEventPayloads } from "../drift";
 // either we load it on page load
 // you call the ready() method
 // or we poll for the lib's presence once a second
-export type ScriptLoadType = "load" | "manual";
+type ScriptLoadType = "load" | "manual";
 type BaseDriftPluginConfig = {
   driftId: string;
   scriptLoad?: ScriptLoadType;
@@ -11,7 +11,7 @@ type BaseDriftPluginConfig = {
   events?: Set<keyof DriftEventPayloads>;
 };
 
-type UserAttributesDriftPluginConfig = {
+type UserAttributesConfig = {
   identityType: "userAttributes";
   jwtResolver?: never;
 };
@@ -22,22 +22,18 @@ type UserAttributesDriftPluginConfig = {
 // identify, what happens if you call this for SSR?
 // so identify essentially 'logs' that user id into drift
 // to restore their chats and what not
-type IdentityDriftPluginConfig = {
+type IdentifyConfig = {
   identityType: "identify";
   scriptLoad: "load";
   jwtResolver?: never;
 };
-export type SecureDriftPluginConfig = {
-  identityType: "secured";
+export type SignedConfig = {
+  identityType: "signed";
   scriptLoad: "load";
   jwtResolver: (userId: string) => Promise<string>;
 };
 export type DriftPluginConfig = BaseDriftPluginConfig &
-  (
-    | UserAttributesDriftPluginConfig
-    | IdentityDriftPluginConfig
-    | SecureDriftPluginConfig
-  );
+  (UserAttributesConfig | IdentifyConfig | SignedConfig);
 
 //// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Metadata = Record<string, any>;
