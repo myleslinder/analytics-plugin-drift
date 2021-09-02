@@ -13,6 +13,7 @@ type BaseDriftPluginConfig = {
 
 type UserAttributesDriftPluginConfig = {
   identityType: "userAttributes";
+  jwtResolver?: never;
 };
 // if you pass `secured` or `identify`
 // then we wait to load the drift script until
@@ -24,6 +25,7 @@ type UserAttributesDriftPluginConfig = {
 type IdentityDriftPluginConfig = {
   identityType: "identify";
   scriptLoad: "load";
+  jwtResolver?: never;
 };
 export type SecureDriftPluginConfig = {
   identityType: "secured";

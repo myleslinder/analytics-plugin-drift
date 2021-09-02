@@ -157,6 +157,7 @@ export type DriftEventHandlers = {
 declare global {
   interface Window {
     drift: {
+      hasInitialized: boolean;
       SNIPPET_VERSION: string;
       identify: any;
       load: (key: string) => void;

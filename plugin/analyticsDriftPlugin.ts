@@ -9,121 +9,105 @@ import {
   SecureDriftPluginConfig,
 } from "./pluginTypes";
 
-const selectIdentityFunction = (
-  identityType: DriftPluginConfig["identityType"]
-) =>
-  identityType === "userAttributes"
-    ? window.drift.api.setUserAttributes.bind(window.drift.api)
-    : window.drift.identify.bind(window.drift);
-
-function callBaseMethod(
-  payload: AnalyticsMethodParams["payload"],
-  identity?: {
-    type: DriftPluginConfig["identityType"];
-    jwtResolver?: SecureDriftPluginConfig["jwtResolver"];
-  }
-) {
-  assert(window.drift);
-  if (payload.type === "page") {
-    window.drift.page();
-  } else if (payload.type === "identify") {
-    if (!identity) {
-      console.error("No identity info");
-      return;
-    }
-    const identityFunction = selectIdentityFunction(identity.type);
-    if (identity.type !== "userAttributes") {
-      if (identity.type === "secured") {
-        if (!identity.jwtResolver) {
-          throw new Error("No jwt resolver provided");
-        }
-        identity
-          .jwtResolver(payload.userId)
-          .then((jwt) =>
-            identityFunction(payload.userId, payload.traits, { jwt })
-          );
-      } else {
-        identityFunction(payload.userId, payload.traits);
-      }
-    } else {
-      identityFunction(payload.traits);
-    }
-    payload.traits;
-  } else if (payload.type === "track") {
-    window.drift.track(payload.properties);
-  }
-}
-
-function passAlongHistory(
-  history: AnalyticsMethodParams[],
-  identityType: DriftPluginConfig["identityType"]
-) {
-  // do this async?
-  history.forEach(({ payload }) =>
-    callBaseMethod(payload, { type: identityType })
-  );
-}
-
-function handleEvent(
-  loaded: boolean,
-  params: AnalyticsMethodParams,
-  history: AnalyticsMethodParams[],
-  identityType: DriftPluginConfig["identityType"]
-) {
-  let newHistory = [...history];
-  if (loaded) {
-    if (history.length) {
-      passAlongHistory(history, identityType);
-      newHistory = [];
-    }
-    callBaseMethod(params.payload, { type: identityType });
-  } else {
-    newHistory.push(params);
-  }
-  return newHistory;
-}
-
-function registerEvent<T extends keyof DriftEventPayloads>(
-  instance: AnalyticsInstance,
-  eventName: T
-) {
-  let handler: DriftEventHandler<
-    DriftEventPayloads[T][0],
-    DriftEventPayloads[T][1]
-  > = (data, payload) => {
-    let eventPayload = {
-      [!payload ? "payload" : "api"]: data,
-      ...(payload ? { payload } : {}),
-    };
-    instance.dispatch({
-      type: `drift:${eventName}`,
-      ...{ eventPayload },
-    });
-  };
-  window.drift.on(eventName, handler);
-}
-
-function registerEvents(
-  instance: AnalyticsInstance,
-  events: DriftPluginConfig["events"]
-) {
-  // async?
-  Array.from(events || []).map((eventName) => {
-    return registerEvent(instance, eventName);
-  });
-}
-
 export default function analyticsDriftPlugin({
   driftId,
   identityType = "userAttributes",
   scriptLoad = "load",
   page = false,
   events,
+  jwtResolver,
 }: DriftPluginConfig): AnalyticsPlugin {
   let isLoaded = false;
 
   const checkIsLoaded = () => isBrowser && isLoaded;
   let eventHistory: AnalyticsMethodParams[] = [];
+
+  const selectIdentityFunction = () =>
+    identityType === "userAttributes"
+      ? window.drift.api.setUserAttributes.bind(window.drift.api)
+      : window.drift.identify.bind(window.drift);
+
+  function callBaseMethod(payload: AnalyticsMethodParams["payload"]) {
+    assert(window.drift);
+    if (payload.type === "page") {
+      window.drift.page();
+    } else if (payload.type === "track") {
+      window.drift.track(payload.properties);
+    } else if (payload.type === "identify") {
+      const identityFunction = selectIdentityFunction();
+      if (identityType !== "userAttributes") {
+        if (identityType === "secured") {
+          if (!jwtResolver) {
+            throw new Error("No jwt resolver provided");
+          }
+          return jwtResolver(payload.userId).then((jwt) => {
+            identityFunction(payload.userId, payload.traits, { jwt });
+            if (!window.drift.hasInitialized) {
+              window.drift.load("driftId");
+            }
+          });
+        } else {
+          identityFunction(payload.userId, payload.traits);
+        }
+      } else {
+        identityFunction(payload.traits);
+      }
+      payload.traits;
+    }
+  }
+
+  function passAlongHistory(history: AnalyticsMethodParams[]) {
+    // do this async?
+    history.forEach(({ payload }) => callBaseMethod(payload));
+  }
+
+  function handleEvent(
+    loaded: boolean,
+    params: AnalyticsMethodParams,
+    history: AnalyticsMethodParams[]
+  ) {
+    let newHistory = [...history];
+    if (loaded) {
+      if (history.length) {
+        passAlongHistory(history);
+        newHistory = [];
+      }
+      callBaseMethod(params.payload);
+    } else {
+      newHistory.push(params);
+    }
+    return newHistory;
+  }
+
+  function registerEvent<T extends keyof DriftEventPayloads>(
+    instance: AnalyticsInstance,
+    eventName: T
+  ) {
+    let handler: DriftEventHandler<
+      DriftEventPayloads[T][0],
+      DriftEventPayloads[T][1]
+    > = (data, payload) => {
+      let eventPayload = {
+        [!payload ? "payload" : "api"]: data,
+        ...(payload ? { payload } : {}),
+      };
+      instance.dispatch({
+        type: `drift:${eventName}`,
+        ...{ eventPayload },
+      });
+    };
+    window.drift.on(eventName, handler);
+  }
+
+  function registerEvents(
+    instance: AnalyticsInstance,
+    events: DriftPluginConfig["events"]
+  ) {
+    // async?
+    Array.from(events || []).map((eventName) => {
+      return registerEvent(instance, eventName);
+    });
+  }
 
   return {
     name: "drift-plugin",
@@ -148,22 +132,26 @@ export default function analyticsDriftPlugin({
               .reverse()
               .find(({ payload: { type } }) => type === "identify");
             if (identificationEvent) {
-              // directly call base method so the event history isn't flushed
-              callBaseMethod(identificationEvent.payload, {
-                type: identityType,
-              });
               // remove all identify events so they're not duplicated
               // when the history is flushed after load
               eventHistory = eventHistory.filter(
                 (event) => event.payload.type !== "identify"
               );
-              window.drift.load(driftId);
+              // directly call base method so the event history isn't flushed
+              const maybePromise = callBaseMethod(identificationEvent.payload);
+              if (maybePromise) {
+                maybePromise.then(() => {
+                  if (!window.drift.hasInitialized) {
+                    window.drift.load(driftId);
+                  }
+                });
+              }
             }
           }
 
           window.drift.on("ready", () => {
             isLoaded = true;
-            passAlongHistory(eventHistory, identityType);
+            passAlongHistory(eventHistory);
             registerEvents(p.instance, events);
           });
         }
@@ -173,32 +161,17 @@ export default function analyticsDriftPlugin({
       ? {
           page: (p: AnalyticsMethodParams) => {
             console.log("PAGE", p);
-            eventHistory = handleEvent(
-              checkIsLoaded(),
-              p,
-              eventHistory,
-              identityType
-            );
+            eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
           },
         }
       : {}),
     track: (p: AnalyticsMethodParams) => {
       console.log("track", p);
-      eventHistory = handleEvent(
-        checkIsLoaded(),
-        p,
-        eventHistory,
-        identityType
-      );
+      eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
     },
     identify: (p: AnalyticsMethodParams) => {
       console.log("identify", p);
-      eventHistory = handleEvent(
-        checkIsLoaded(),
-        p,
-        eventHistory,
-        identityType
-      );
+      eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
     },
     loaded: () => {
       return isBrowser;
