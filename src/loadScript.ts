@@ -1,6 +1,9 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+//@ts-nocheck
 export default function loadScript() {
   if (window.drift) return false;
 
+  /* eslint-disable */
   !(function () {
     const t = (window.driftt = window.drift = window.driftt || []);
     if (!t.init) {
@@ -11,7 +14,6 @@ export default function loadScript() {
           console.error("Drift snippet included twice.")
         );
       }
-      //eslint-disable-next-line  @typescript-eslint/no-extra-semi
       (t.invoked = !0),
         (t.methods = [
           "identify",
@@ -48,6 +50,7 @@ export default function loadScript() {
         });
     }
   })();
+  /* eslint-enable */
   window.drift.SNIPPET_VERSION = "0.3.1";
   return true;
 }

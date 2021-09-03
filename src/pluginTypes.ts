@@ -1,8 +1,6 @@
 import { AnalyticsInstance, PageData } from "analytics";
-import { DriftEventPayloads } from "../drift";
-// either we load it on page load
-// you call the ready() method
-// or we poll for the lib's presence once a second
+import { DriftEventPayloads } from "@/drift";
+
 type ScriptLoadType = "load" | "manual";
 type BaseDriftPluginConfig = {
   driftId: string;
@@ -15,13 +13,6 @@ type UserAttributesConfig = {
   identityType: "userAttributes";
   jwtResolver?: never;
 };
-// if you pass `secured` or `identify`
-// then we wait to load the drift script until
-// you've called identify?
-// we kind of need to know if you're going to call
-// identify, what happens if you call this for SSR?
-// so identify essentially 'logs' that user id into drift
-// to restore their chats and what not
 type IdentifyConfig = {
   identityType: "identify";
   scriptLoad: "load";
@@ -35,8 +26,7 @@ export type SignedConfig = {
 export type DriftPluginConfig = BaseDriftPluginConfig &
   (UserAttributesConfig | IdentifyConfig | SignedConfig);
 
-//// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Metadata = Record<string, any>;
+type Metadata = Record<string, unknown>;
 
 type TrackPayload = {
   type: "track";
@@ -55,15 +45,9 @@ export type IdentifyPayload = {
 export type AnalyticsMethodParams = {
   abort: (reason: string) => void;
   instance: AnalyticsInstance;
-  config: {};
-  plugins: {};
+  config: Record<string, unknown>;
+  plugins: Record<string, unknown>;
   payload: TrackPayload | PagePayload | IdentifyPayload;
-};
-
-type AnalyticsDispatchedEventKey = `drift:${keyof DriftEventPayloads}`;
-
-export type AnalyticsDispatchedEvents = {
-  [K in AnalyticsDispatchedEventKey]: boolean;
 };
 
 //export type DriftBaseMethod = (payload: AnalyticsMethodParams["payload"], identityType?: DriftPluginConfig["identityType"]) => {}

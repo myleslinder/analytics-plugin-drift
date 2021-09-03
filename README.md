@@ -193,6 +193,14 @@ const analytics = Analytics({
 
 ---
 
+## Contributing
+
+- building
+- CI
+-
+
+---
+
 ## TODO
 
 - [] what to do about the ready event, get rid of it?

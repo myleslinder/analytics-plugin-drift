@@ -26,13 +26,13 @@ type ConversationBasePayload = {
 };
 export type DriftEventPayloads = {
   ready: [
-    any,
+    DriftInstance["api"],
     {
       sidebarOpen: boolean;
       chatOpen: boolean;
       widgetVisible: boolean;
       isOnline: boolean;
-      teamAvailability: Record<string, any>;
+      teamAvailability: Record<string, unknown>;
     }
   ];
   chatOpen: EmptyPayload;
@@ -168,53 +168,64 @@ export type DriftEventHandlers = {
   >;
 };
 
-//export type DriftEventHandler = (data: StartConversationEventPayload) => void;
+type DriftInstance = {
+  hasInitialized: boolean;
+  SNIPPET_VERSION: string;
+  identify: (
+    userId: string,
+    attributes: Record<string, unknown>,
+    jwt?: { jwt: string }
+  ) => void;
+  load: (key: string) => void;
+  config: unknown;
+  track: (eventName: string, properties: Record<string, unknown>) => void;
+  reset: () => void;
+  debug: boolean;
+  show: () => void;
+  ping: () => void;
+  page: () => void;
+  hide: () => void;
+  off: <K extends keyof DriftEventPayloads>(
+    eventName: K,
+    handler: (...args: DriftEventPayloads[K]) => void
+  ) => void;
+  on: <K extends keyof DriftEventPayloads>(
+    eventName: K,
+    handler: (...args: DriftEventPayloads[K]) => void
+  ) => void;
+  api: {
+    goToConversation: () => void;
+    goToConversationList: () => void;
+    goToNewConversation: () => void;
+    hideAwayMessage: () => void;
+    hideChat: () => void;
+    hideWelcomeMessage: () => void;
+    off: <K extends keyof DriftEventPayloads>(
+      eventName: K,
+      handler: (...args: DriftEventPayloads[K]) => void
+    ) => void;
+    on: <K extends keyof DriftEventPayloads>(
+      eventName: K,
+      handler: (...args: DriftEventPayloads[K]) => void
+    ) => void;
+    openChat: () => void;
+    scheduleMeeting: () => void;
+    setUserAttributes: (attributes: Record<string, unknown>) => void;
+    showAwayMessage: () => void;
+    showWelcomeMessage: () => void;
+    showWelcomeOrAwayMessage: () => void;
+    sidebar: { open: () => void; close: () => void; toggle: () => void };
+    startInteraction: () => void;
+    startVideoGreeting: () => void;
+    toggleChat: () => void;
+  };
+  apiReady: boolean;
+  chatReady: boolean;
+};
+
 declare global {
   interface Window {
-    drift: {
-      hasInitialized: boolean;
-      SNIPPET_VERSION: string;
-      identify: any;
-      load: (key: string) => void;
-      config: any;
-      track: any;
-      reset: any;
-      debug: any;
-      show: any;
-      ping: any;
-      page: any;
-      hide: any;
-      off: any;
-      on: (
-        eventName: keyof DriftEventPayloads,
-        handler?: (...args: any[]) => void
-      ) => void;
-      api: {
-        goToConversation: () => void;
-        goToConversationList: () => void;
-        goToNewConversation: () => void;
-        hideAwayMessage: () => void;
-        hideChat: () => void;
-        hideWelcomeMessage: () => void;
-        off: (
-          e: keyof DriftEventPayloads,
-          t?: (...args: any[]) => void
-        ) => void;
-        on: (e: keyof DriftEventPayloads, t?: (...args: any[]) => void) => void;
-        openChat: () => void;
-        scheduleMeeting: () => void;
-        setUserAttributes: (attr: any) => void;
-        showAwayMessage: () => void;
-        showWelcomeMessage: () => void;
-        showWelcomeOrAwayMessage: () => void;
-        sidebar: { open: () => void; close: () => void; toggle: () => void };
-        startInteraction: () => void;
-        startVideoGreeting: () => void;
-        toggleChat: () => void;
-      };
-      apiReady: boolean;
-      chatReady: boolean;
-    };
-    driftt: any;
+    drift: DriftInstance;
+    driftt: DriftInstance;
   }
 }

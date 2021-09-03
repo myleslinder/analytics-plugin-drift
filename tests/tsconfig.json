@@ -1,0 +1,16 @@
+{
+  "extends": "../tsconfig.json",
+  "references": [
+    {
+      "name": "my-lin",
+      "path": ".."
+    }
+  ],
+  "compilerOptions": {
+    "isolatedModules": false,
+    "rootDir": "..",
+    "noEmit": true,
+    "types": ["jest"]
+  },
+  "include": ["."]
+}
