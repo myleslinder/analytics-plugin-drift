@@ -1,6 +1,4 @@
-import { AnalyticsInstance } from "analytics";
-
-type EmptyPayload = [undefined];
+type EmptyPayload = [void];
 type CampaignPayload = [
   {
     data: {
@@ -24,7 +22,7 @@ type ConversationBasePayload = {
   interactionId?: number;
   campaignId?: number;
 };
-export type DriftEventPayloads = {
+type DriftEventPayloads = {
   ready: [
     DriftInstance["api"],
     {
@@ -138,36 +136,6 @@ export type DriftEventPayloads = {
   ];
 };
 
-export type DriftEventName = `drift:${keyof DriftEventPayloads}`;
-
-// | {
-//     event: keyof DriftEventPayloads;
-//     track: boolean;
-//     trackName: string;
-//   };
-
-type DriftPluginEventHandler<K, D, P> = (arg: {
-  type: K;
-  instance: AnalyticsInstance;
-  eventPayload: { payload: D; meta: P };
-}) => void;
-export type DriftPluginEventHandlers = {
-  [K in keyof DriftEventPayloads]?: DriftPluginEventHandler<
-    K,
-    DriftEventPayloads[K][0],
-    DriftEventPayloads[K][1]
-  >;
-};
-
-export type DriftEventHandler<D, P> = (data: D, payload?: P) => void;
-
-export type DriftEventHandlers = {
-  [K in keyof DriftEventPayloads]?: DriftEventHandler<
-    DriftEventPayloads[K][0],
-    DriftEventPayloads[K][1]
-  >;
-};
-
 type DriftInstance = {
   hasInitialized: boolean;
   SNIPPET_VERSION: string;
@@ -187,11 +155,17 @@ type DriftInstance = {
   hide: () => void;
   off: <K extends keyof DriftEventPayloads>(
     eventName: K,
-    handler: (...args: DriftEventPayloads[K]) => void
+    handler: (
+      apiOrData: DriftEventPayloads[K][0],
+      payload: DriftEventPayloads[K][1]
+    ) => void
   ) => void;
   on: <K extends keyof DriftEventPayloads>(
     eventName: K,
-    handler: (...args: DriftEventPayloads[K]) => void
+    handler: (
+      apiOrData: DriftEventPayloads[K][0],
+      payload: DriftEventPayloads[K][1]
+    ) => void
   ) => void;
   api: {
     goToConversation: () => void;
@@ -202,11 +176,17 @@ type DriftInstance = {
     hideWelcomeMessage: () => void;
     off: <K extends keyof DriftEventPayloads>(
       eventName: K,
-      handler: (...args: DriftEventPayloads[K]) => void
+      handler: (
+        apiOrData: DriftEventPayloads[K][0],
+        payload: DriftEventPayloads[K][1]
+      ) => void
     ) => void;
     on: <K extends keyof DriftEventPayloads>(
       eventName: K,
-      handler: (...args: DriftEventPayloads[K]) => void
+      handler: (
+        apiOrData: DriftEventPayloads[K][0],
+        payload: DriftEventPayloads[K][1]
+      ) => void
     ) => void;
     openChat: () => void;
     scheduleMeeting: () => void;
@@ -214,7 +194,11 @@ type DriftInstance = {
     showAwayMessage: () => void;
     showWelcomeMessage: () => void;
     showWelcomeOrAwayMessage: () => void;
-    sidebar: { open: () => void; close: () => void; toggle: () => void };
+    sidebar: {
+      open: () => void;
+      close: () => void;
+      toggle: () => void;
+    };
     startInteraction: () => void;
     startVideoGreeting: () => void;
     toggleChat: () => void;
@@ -223,9 +207,7 @@ type DriftInstance = {
   chatReady: boolean;
 };
 
-declare global {
-  interface Window {
-    drift: DriftInstance;
-    driftt: DriftInstance;
-  }
+export namespace Drift {
+  export type Instance = DriftInstance;
+  export type EventPayloads = DriftEventPayloads;
 }

@@ -3,5 +3,6 @@
   "compilerOptions": {
     "types": ["jest", "src"]
   },
-  "include": ["src", "examples", "tests"]
+  "include": ["src", "examples", "tests"],
+  "exclude": ["dist", "jest.config.js"]
 }

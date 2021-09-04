@@ -1,4 +1,4 @@
-node_modules
+dist
 
 # Logs
 
@@ -109,7 +109,6 @@ out
 # Nuxt.js build / generate output
 
 .nuxt
-dist
 
 # Gatsby files
 
