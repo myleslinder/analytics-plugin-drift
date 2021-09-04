@@ -1,11 +1,8 @@
 export const isBrowser = typeof window !== "undefined";
 
 export function sleep(delay: number) {
-  let timeoutId: number;
-  return [
-    new Promise((resolve) => (timeoutId = setTimeout(resolve, delay))),
-    () => clearTimeout(timeoutId),
-  ];
+  //let timeoutId: number | NodeJS.Timeout;
+  return [new Promise((resolve) => setTimeout(resolve, delay))];
 }
 
 const isError = (e: unknown): e is Error => {
