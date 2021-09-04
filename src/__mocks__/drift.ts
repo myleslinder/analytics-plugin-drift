@@ -202,30 +202,8 @@ const driftmock: DriftInstance = {
   ping: () => undefined,
   page: jest.fn(() => undefined),
   hide: () => undefined,
-  off: <K extends keyof Drift.EventPayloads>(
-    _eventName: K,
-    _handler: (
-      apiOrData: Drift.EventPayloads[K][0],
-      payload: Drift.EventPayloads[K][1]
-    ) => void
-  ) => undefined,
-  on: jest.fn(
-    <K extends keyof Drift.EventPayloads>(
-      eventName: K,
-      handler: (
-        apiOrData: Drift.EventPayloads[K][0],
-        payload: Drift.EventPayloads[K][1]
-      ) => void
-    ) => {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      //@ts-ignore
-      registeredHandlers[eventName] = [
-        ...(registeredHandlers[eventName] ?? []),
-        handler,
-      ];
-      return;
-    }
-  ),
+  off: jest.fn(),
+  on: jest.fn(),
   api: {
     goToConversation: () => undefined,
     goToConversationList: () => undefined,
@@ -273,4 +251,9 @@ driftmock.load = jest.fn(
   }.bind(driftmock)
 );
 
-export const buildDriftMock = () => ({ ...driftmock });
+export const clearMocks = () => {
+  jest.clearAllMocks();
+};
+export const buildDriftMock = () => {
+  return { ...driftmock };
+};

@@ -1,11 +1,7 @@
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-
-import { buildDriftMock } from "./__mocks__/drift";
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 
 //@ts-nocheck
 export default function loadScript() {
-  window.drift = buildDriftMock();
-  return true;
   if (window.drift) return false;
 
   /* eslint-disable */

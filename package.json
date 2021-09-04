@@ -50,6 +50,7 @@
     "moduleNameMapper": {
       "^~": "<rootDir>/src"
     },
+    "clearMocks": true,
     "testEnvironment": "jsdom"
   },
   "size-limit": [

@@ -22,7 +22,6 @@ export const buildListenerPlugin = () => {
     "campaign:click": jest.fn(),
     startConversation: jest.fn(
       async ({ instance }: { instance: AnalyticsInstance }) => {
-        console.log("calling track");
         await instance.track("Start Conversation");
       }
     ),

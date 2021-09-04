@@ -23,7 +23,7 @@ export function analyticsDriftPlugin({
 
   async function callBaseMethod(payload: AnalyticsMethodParams["payload"]) {
     assert(!!window.drift);
-    console.log("base", payload.type);
+    console.log("base metohd", payload.type);
     if (payload.type === "page") {
       window.drift.page();
     } else if (payload.type === "track") {
@@ -56,7 +56,6 @@ export function analyticsDriftPlugin({
   }
 
   async function passAlongHistory(history: AnalyticsMethodParams[]) {
-    console.log("calling pass along with ", history.length);
     return Promise.all(
       history.map(async ({ payload }) =>
         handleBaseMethodError(callBaseMethod(payload))
@@ -70,13 +69,13 @@ export function analyticsDriftPlugin({
     history: AnalyticsMethodParams[]
   ) {
     let newHistory = [...history];
-    console.log("loded", loaded);
+
     if (loaded) {
       if (history.length) {
         await passAlongHistory(history);
         newHistory = [];
       }
-      console.log(params.payload.type);
+
       await handleBaseMethodError(callBaseMethod(params.payload));
     } else {
       newHistory.push(params);
@@ -98,7 +97,6 @@ export function analyticsDriftPlugin({
         ...(payload ? { payload } : {}),
       };
 
-      console.log("dispatching", eventName);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       instance.dispatch({
         type: eventName,
@@ -131,24 +129,27 @@ export function analyticsDriftPlugin({
     initialize: async (p: AnalyticsMethodParams) => {
       if (scriptLoad === "load") {
         const loaded = loadScript();
-        console.log("loadscript=", loaded);
+        console.log("loaded=", loaded);
         if (loaded) {
           if (identityType === "userAttributes") {
             window.drift.load(driftId);
           } else {
-            // reverse the array since its chronological so we find the last one
-            // in case there's multiple calls prior to load
-            const identificationEvent = eventHistory
-              .reverse()
-              .find(({ payload: { type } }) => type === "identify");
-            if (identificationEvent) {
-              // remove all identify events so they're not duplicated
-              // when the history is flushed after load
+            const user =
+              (p.instance.user() as {
+                userId: string;
+                traits: Record<string, unknown>;
+              }) || {};
+            if (user.userId) {
+              await callBaseMethod({
+                type: "identify",
+                userId: user.userId,
+                traits: user.traits,
+              });
+
               eventHistory = eventHistory.filter(
                 (event) => event.payload.type !== "identify"
               );
-              // directly call base method so the event history isn't flushed
-              await callBaseMethod(identificationEvent.payload);
+              console.log(eventHistory);
             }
 
             if (!window.drift.hasInitialized) {
@@ -158,7 +159,6 @@ export function analyticsDriftPlugin({
 
           // eslint-disable-next-line @typescript-eslint/no-misused-promises
           window.drift.on("ready", async () => {
-            console.log("drift said ready from our load");
             isLoaded = true;
             await passAlongHistory(eventHistory);
             registerEvents(p.instance, events);
@@ -177,6 +177,7 @@ export function analyticsDriftPlugin({
       eventHistory = await handleEvent(checkIsLoaded(), p, eventHistory);
     },
     identify: async (p: AnalyticsMethodParams) => {
+      console.log("identify");
       eventHistory = await handleEvent(checkIsLoaded(), p, eventHistory);
     },
     loaded: () => {
