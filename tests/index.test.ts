@@ -1,25 +1,32 @@
 /* eslint-disable @typescript-eslint/require-await */
-import Analytics, { AnalyticsInstance } from "analytics";
+import Analytics from "analytics";
 import { analyticsDriftPlugin } from "../src/index";
-import {
-  DriftPluginEventHandlers,
-  AnalyticsPlugin,
-  AnalyticsWithDriftPlugin,
-} from "~/types";
+import { AnalyticsWithDriftPlugin } from "~/types";
 import { Drift } from "~/types/drift";
-import {
-  DriftEventPayloads,
-  driftmock,
-  registeredHandlers,
-} from "../src/__mocks__/drift";
-
+import { buildDriftMock, registeredHandlers } from "../src/__mocks__/drift";
+import { buildAnalyticsInstance, buildListenerPlugin } from "./helpers";
+const assignTo = () => {
+  window.drift = buildDriftMock();
+  console.log("loaded drift from script");
+};
 jest.mock("../src/index", () => {
-  jest.mock("../src/loadScript");
+  const mockWindow = jest.mock("../src/loadScript", () => {
+    return {
+      __esModule: true,
+      default: () => {
+        assignTo();
+        console.log("returnign true");
+        return true;
+      },
+    };
+  });
   return jest.requireActual("../src/index");
 });
+
 beforeEach(() => {
-  //
+  jest.clearAllMocks();
 });
+
 afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore
@@ -27,39 +34,36 @@ afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore
   window.driftt = undefined;
+
+  //resetRegisteredHandlers();
 });
 
 describe("Analytics Drift Plugin", () => {
-  test("it respects the page config", async () => {
+  test("page config", async () => {
     const plugin = analyticsDriftPlugin({
       driftId: "",
       identityType: "userAttributes",
       scriptLoad: "load",
-      page: false,
+      page: true,
     });
-    const analytics = Analytics({
-      app: `Test-App`,
-      version: "1",
-      debug: false,
-      plugins: [plugin],
+    // expect(
+    //   Object.prototype.hasOwnProperty.call(analyticsDriftPlugin, "page")
+    // ).toBeTruthy();
+    const analytics = buildAnalyticsInstance([plugin]);
+    await new Promise<void>((resolve) => {
+      analytics.on("ready", async () => {
+        await Promise.all(registeredHandlers?.ready.map((h) => h()));
+        void analytics.page();
+        analytics.on("page", () => {
+          resolve();
+        });
+      });
     });
-    void analytics.page();
-    return () => {
-      expect(window?.drift?.page).not.toHaveBeenCalled();
-    };
+    expect(window.drift.page).toHaveBeenCalled();
   });
 
   test("it dispatches drift events to the plugin system", async () => {
-    const driftEventPlugin: AnalyticsPlugin & DriftPluginEventHandlers = {
-      name: "listener-plugin",
-      "campaign:click": jest.fn(),
-      startConversation: jest.fn(
-        ({ instance }: { instance: AnalyticsInstance }) => {
-          void instance.track("Start Conversation");
-        }
-      ),
-      emailCapture: jest.fn(),
-    };
+    const driftEventPlugin = buildListenerPlugin();
 
     const events: (keyof Drift.EventPayloads)[] = Object.keys(
       driftEventPlugin
@@ -80,20 +84,33 @@ describe("Analytics Drift Plugin", () => {
       plugins: [plugin, driftEventPlugin],
     }) as AnalyticsWithDriftPlugin;
 
-    window.drift = driftmock;
-
+    window.drift = buildDriftMock();
     analytics.plugins.drift.ready();
 
-    return () => {
-      expect(window.drift.on).toHaveBeenCalledTimes(events.length + 1);
-      events.forEach((eventName) => {
-        registeredHandlers[eventName]?.forEach((handler) => handler());
+    await new Promise<void>((resolve) => {
+      let eventCount = 0;
+
+      analytics.on("ready", async () => {
+        await Promise.all(registeredHandlers?.ready.map((h) => h()));
+
+        events.forEach((eventName, _, arr) => {
+          analytics.on(eventName, () => {
+            eventCount++;
+            if (eventCount === arr.length) {
+              resolve();
+            }
+          });
+          registeredHandlers[eventName]?.forEach((handler) => {
+            handler();
+          });
+        });
       });
-      events.forEach((eventName, i) => {
-        expect(events[i]).toHaveBeenCalledWith(DriftEventPayloads[eventName]);
-      });
-      expect(window.drift?.track).toHaveBeenCalledWith("Start Conversation");
-    };
+    });
+    expect(window.drift.on).toHaveBeenCalledTimes(events.length + 1);
+    events.forEach((eventName) => {
+      expect(driftEventPlugin[eventName]).toHaveBeenCalled();
+    });
+    expect(window.drift.track).toHaveBeenCalledWith("Start Conversation", {});
   });
 
   describe("Manual loading", () => {
@@ -104,15 +121,19 @@ describe("Analytics Drift Plugin", () => {
         scriptLoad: "manual",
         page: false,
       });
-      Analytics({
+      const analytics = Analytics({
         app: `Test-App`,
         version: "1",
         debug: false,
         plugins: [plugin],
       });
-      return () => expect(window.drift).toBe(undefined);
+      await new Promise<void>((resolve) => {
+        analytics.on("ready", () => {
+          resolve();
+        });
+        expect(window.drift).toBe(undefined);
+      });
     });
-
     test("it does not forward events to drift until ready", async () => {
       const plugin = analyticsDriftPlugin({
         driftId: "",
@@ -138,33 +159,45 @@ describe("Analytics Drift Plugin", () => {
         },
       ];
 
-      void analytics.identify("someId", { fakeAttr: 1 });
-      void analytics.track(trackedEvents[0].name, trackedEvents[0].properties);
-      expect(window.drift).toBe(undefined);
-      window.drift = driftmock;
-      const mocks = [
-        window.drift.track,
-        window.drift.identify,
-        window.drift.api.setUserAttributes,
-      ];
-      mocks.forEach((mock) => expect(mock).not.toHaveBeenCalled());
-      analytics.plugins.drift.ready();
-      void analytics.track(trackedEvents[1].name, trackedEvents[1].properties);
-      return () => {
-        expect(window.drift.track).toHaveBeenCalledTimes(trackedEvents.length);
-        if (jest.isMockFunction(window.drift.track)) {
-          window.drift.track.mock.calls.forEach((call, i) => {
-            expect(call).toContainEqual(trackedEvents[i]);
-          });
-        } else {
-          throw new Error("Drift track method not mocked");
-        }
-        expect(window.drift.identify).toHaveBeenCalledTimes(0);
-        expect(window.drift.api.setUserAttributes).toHaveBeenCalledTimes(1);
-      };
+      await new Promise<void>((resolve) => {
+        analytics.on("ready", async () => {
+          await analytics.identify("someId", { fakeAttr: 1 });
+          await analytics.track(
+            trackedEvents[0].name,
+            trackedEvents[0].properties
+          );
+          expect(window.drift).toBe(undefined);
+          window.drift = buildDriftMock();
+          const mocks = [
+            window.drift.track,
+            window.drift.identify,
+            window.drift.api.setUserAttributes,
+          ];
+          mocks.forEach((mock) => expect(mock).not.toHaveBeenCalled());
+          analytics.plugins.drift.ready();
+          await Promise.all(registeredHandlers?.ready.map((h) => h()));
+          await analytics.track(
+            trackedEvents[1].name,
+            trackedEvents[1].properties
+          );
+          resolve();
+        });
+      });
+      expect(window.drift.api.setUserAttributes).toHaveBeenCalledTimes(1);
+      expect(window.drift.track).toHaveBeenCalledTimes(trackedEvents.length);
+      if (jest.isMockFunction(window.drift.track)) {
+        window.drift.track.mock.calls.forEach((call: [unknown, unknown], i) => {
+          expect(call[0]).toEqual(trackedEvents[i].name);
+          expect(call[1]).toMatchObject(trackedEvents[i].properties);
+        });
+      } else {
+        throw new Error("Drift track method not mocked");
+      }
+      expect(window.drift.identify).toHaveBeenCalledTimes(0);
     });
   });
 
+  // NSFW: https://www.youtube.com/watch?v=VHdJ9bbAfpc
   describe("We do da loading", () => {
     test("it loads drift", async () => {
       expect(window.drift).toBe(undefined);
@@ -174,17 +207,23 @@ describe("Analytics Drift Plugin", () => {
         scriptLoad: "load",
         page: false,
       });
-      Analytics({
+      const analytics = Analytics({
         app: `Test-App`,
         version: "1",
         debug: false,
         plugins: [plugin],
       });
-      return () => {
+
+      return new Promise<void>((resolve) => {
+        analytics.on("ready", async () => {
+          await Promise.all(registeredHandlers?.ready.map((h) => h()));
+          resolve();
+        });
+      }).then(() => {
         expect(window.drift).not.toBe(undefined);
         expect(window.drift.load).toHaveBeenCalledTimes(1);
         expect(window.drift.identify).not.toHaveBeenCalled();
-      };
+      });
     });
 
     test("it forwards calls placed before load completes", async () => {
@@ -200,16 +239,55 @@ describe("Analytics Drift Plugin", () => {
         debug: false,
         plugins: [plugin],
       });
-
-      void analytics.identify("someId", { fakeAttr: 1 });
-      void analytics.track("Some Event", { fakeProp: 1 });
-      return () => {
-        expect(window.drift).not.toBe(undefined);
-        expect(window.drift.load).toHaveBeenCalledTimes(1);
-        expect(window.drift.identify).toHaveBeenCalledTimes(1);
-        expect(window.drift.track).toHaveBeenCalledTimes(1);
-      };
+      await new Promise<void>((resolve) => {
+        analytics.on("ready", async () => {
+          expect(window.drift).not.toBe(undefined);
+          await analytics.identify("someId", { fakeAttr: 1 });
+          await analytics.track("Some Event", { fakeProp: 1 });
+          await Promise.all(registeredHandlers?.ready.map((h) => h()));
+          resolve();
+        });
+      });
+      expect(window.drift.load).toHaveBeenCalledTimes(1);
+      expect(window.drift.identify).toHaveBeenCalledTimes(1);
+      expect(window.drift.track).toHaveBeenCalledTimes(1);
     });
+
+    test("it handles signed identity calls", async () => {
+      const jwtResolver = jest.fn(
+        async (userId: string) => `someFakeJwt:${userId}`
+      );
+      const plugin = analyticsDriftPlugin({
+        driftId: "",
+        identityType: "signed",
+        scriptLoad: "load",
+        page: false,
+        jwtResolver,
+      });
+      const analytics = Analytics({
+        app: `Test-App`,
+        version: "1",
+        debug: false,
+        plugins: [plugin],
+      });
+      const userId = "somefakeuserId";
+
+      await analytics.identify(userId, { fakeAttr: 1 });
+      await analytics.track("Some Event", { fakeProp: 1 });
+      await new Promise<void>((resolve) => {
+        analytics.on("ready", async () => {
+          await Promise.all(registeredHandlers?.ready.map((h) => h()));
+          resolve();
+        });
+      });
+      expect(window.drift).not.toBe(undefined);
+      expect(window.drift.load).toHaveBeenCalledTimes(1);
+      expect(window.drift.identify).toHaveBeenCalledTimes(1);
+      expect(jwtResolver).toHaveBeenCalledTimes(1);
+      expect(jwtResolver).toHaveBeenCalledWith(userId);
+      expect(window.drift.track).toHaveBeenCalledTimes(1);
+    });
+
     test("it forwards all calls after load", async () => {
       const plugin = analyticsDriftPlugin({
         driftId: "",
@@ -224,14 +302,18 @@ describe("Analytics Drift Plugin", () => {
         plugins: [plugin],
       });
 
-      void analytics.identify("someId", { fakeAttr: 1 });
-      void analytics.track("Some Event", { fakeProp: 1 });
-      return () => {
-        expect(window.drift).not.toBe(undefined);
-        expect(window.drift.load).toHaveBeenCalledTimes(1);
-        expect(window.drift.identify).toHaveBeenCalledTimes(1);
-        expect(window.drift.track).toHaveBeenCalledTimes(1);
-      };
+      await analytics.identify("someId", { fakeAttr: 1 });
+      await analytics.track("Some Event", { fakeProp: 1 });
+      await new Promise<void>((resolve) => {
+        analytics.on("ready", async () => {
+          await Promise.all(registeredHandlers?.ready.map((h) => h()));
+          resolve();
+        });
+      });
+      expect(window.drift).not.toBe(undefined);
+      expect(window.drift.load).toHaveBeenCalledTimes(1);
+      expect(window.drift.identify).toHaveBeenCalledTimes(1);
+      expect(window.drift.track).toHaveBeenCalledTimes(1);
     });
   });
 });

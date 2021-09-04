@@ -23,6 +23,7 @@ export function analyticsDriftPlugin({
 
   async function callBaseMethod(payload: AnalyticsMethodParams["payload"]) {
     assert(!!window.drift);
+    console.log("base", payload.type);
     if (payload.type === "page") {
       window.drift.page();
     } else if (payload.type === "track") {
@@ -35,9 +36,6 @@ export function analyticsDriftPlugin({
           }
           return await jwtResolver(payload.userId).then((jwt) => {
             window.drift.identify(payload.userId, payload.traits, { jwt });
-            if (!window.drift.hasInitialized) {
-              window.drift.load("driftId");
-            }
           });
         } else {
           window.drift.identify(payload.userId, payload.traits);
@@ -54,27 +52,32 @@ export function analyticsDriftPlugin({
       // eventHistory.push(initialPayload)
       console.error(e);
     });
+    return promise;
   }
 
-  function passAlongHistory(history: AnalyticsMethodParams[]) {
-    // do this async?
-    history.forEach(({ payload }) =>
-      handleBaseMethodError(callBaseMethod(payload))
+  async function passAlongHistory(history: AnalyticsMethodParams[]) {
+    console.log("calling pass along with ", history.length);
+    return Promise.all(
+      history.map(async ({ payload }) =>
+        handleBaseMethodError(callBaseMethod(payload))
+      )
     );
   }
 
-  function handleEvent(
+  async function handleEvent(
     loaded: boolean,
     params: AnalyticsMethodParams,
     history: AnalyticsMethodParams[]
   ) {
     let newHistory = [...history];
+    console.log("loded", loaded);
     if (loaded) {
       if (history.length) {
-        passAlongHistory(history);
+        await passAlongHistory(history);
         newHistory = [];
       }
-      handleBaseMethodError(callBaseMethod(params.payload));
+      console.log(params.payload.type);
+      await handleBaseMethodError(callBaseMethod(params.payload));
     } else {
       newHistory.push(params);
     }
@@ -95,6 +98,7 @@ export function analyticsDriftPlugin({
         ...(payload ? { payload } : {}),
       };
 
+      console.log("dispatching", eventName);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       instance.dispatch({
         type: eventName,
@@ -124,9 +128,10 @@ export function analyticsDriftPlugin({
       },
       {}
     ),
-    initialize: (p: AnalyticsMethodParams) => {
+    initialize: async (p: AnalyticsMethodParams) => {
       if (scriptLoad === "load") {
         const loaded = loadScript();
+        console.log("loadscript=", loaded);
         if (loaded) {
           if (identityType === "userAttributes") {
             window.drift.load(driftId);
@@ -143,39 +148,36 @@ export function analyticsDriftPlugin({
                 (event) => event.payload.type !== "identify"
               );
               // directly call base method so the event history isn't flushed
-              const methodPromise = callBaseMethod(identificationEvent.payload);
+              await callBaseMethod(identificationEvent.payload);
+            }
 
-              handleBaseMethodError(
-                methodPromise.then(() => {
-                  if (!window.drift.hasInitialized) {
-                    window.drift.load(driftId);
-                  }
-                })
-              );
+            if (!window.drift.hasInitialized) {
+              window.drift.load(driftId);
             }
           }
 
-          window.drift.on("ready", () => {
+          // eslint-disable-next-line @typescript-eslint/no-misused-promises
+          window.drift.on("ready", async () => {
+            console.log("drift said ready from our load");
             isLoaded = true;
-            passAlongHistory(eventHistory);
+            await passAlongHistory(eventHistory);
             registerEvents(p.instance, events);
-            return undefined;
           });
         }
       }
     },
     ...(page
       ? {
-          page: (p: AnalyticsMethodParams) => {
-            eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
+          page: async (p: AnalyticsMethodParams) => {
+            eventHistory = await handleEvent(checkIsLoaded(), p, eventHistory);
           },
         }
       : {}),
-    track: (p: AnalyticsMethodParams) => {
-      eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
+    track: async (p: AnalyticsMethodParams) => {
+      eventHistory = await handleEvent(checkIsLoaded(), p, eventHistory);
     },
-    identify: (p: AnalyticsMethodParams) => {
-      eventHistory = handleEvent(checkIsLoaded(), p, eventHistory);
+    identify: async (p: AnalyticsMethodParams) => {
+      eventHistory = await handleEvent(checkIsLoaded(), p, eventHistory);
     },
     loaded: () => {
       return isBrowser;
@@ -186,10 +188,12 @@ export function analyticsDriftPlugin({
 
         // wrap in a ready call in case this gets called
         // on script load, and not drift ready
-        window.drift.on("ready", () => {
-          isLoaded = true;
 
-          passAlongHistory(eventHistory);
+        // eslint-disable-next-line @typescript-eslint/no-misused-promises
+        window.drift.on("ready", async () => {
+          isLoaded = true;
+          await passAlongHistory(eventHistory);
+          eventHistory = [];
           registerEvents(this.instance, events);
           return undefined;
         });

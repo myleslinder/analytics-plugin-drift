@@ -181,7 +181,7 @@ export const registeredHandlers: {
   [K in keyof Drift.EventPayloads]?: (() => void)[];
 } = {};
 
-export const driftmock: DriftInstance = {
+const driftmock: DriftInstance = {
   hasInitialized: false,
   SNIPPET_VERSION: "",
   identify: jest.fn(
@@ -191,7 +191,7 @@ export const driftmock: DriftInstance = {
       _jwt?: { jwt: string }
     ) => undefined
   ),
-  load: jest.fn((_key: string) => undefined),
+  load: (_: string) => undefined,
   config: {},
   track: jest.fn(
     (_eventName: string, _properties: Record<string, unknown>) => undefined
@@ -200,7 +200,7 @@ export const driftmock: DriftInstance = {
   debug: false,
   show: () => undefined,
   ping: () => undefined,
-  page: () => undefined,
+  page: jest.fn(() => undefined),
   hide: () => undefined,
   off: <K extends keyof Drift.EventPayloads>(
     _eventName: K,
@@ -267,3 +267,10 @@ export const driftmock: DriftInstance = {
   apiReady: false,
   chatReady: false,
 };
+driftmock.load = jest.fn(
+  function (this: DriftInstance, _: string) {
+    this.hasInitialized = true;
+  }.bind(driftmock)
+);
+
+export const buildDriftMock = () => ({ ...driftmock });
