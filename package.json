@@ -13,7 +13,7 @@
   "version": "0.0.1",
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "yarn lint && yarn test && yarn clean && microbundle --alias @=$pwd/src",
+    "build": "yarn clean && microbundle --alias @=$pwd/src",
     "start": "yarn build watch",
     "typecheck": "yarn tsc --noEmit",
     "lint": "eslint src --ext js,ts",
@@ -21,7 +21,7 @@
     "test": "jest",
     "size": "size-limit",
     "analyze": "size-limit --why",
-    "prepare": ""
+    "prepare": "yarn build"
   },
   "dependencies": {
     "analytics": "^0.7.14"
