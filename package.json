@@ -11,9 +11,6 @@
   "author": "Myles Linder",
   "description": "something here",
   "version": "0.0.1",
-  "engines": {
-    "node": ">= 12"
-  },
   "scripts": {
     "clean": "rm -rf dist",
     "build": "yarn lint && yarn test && yarn clean && microbundle --alias @=$pwd/src",
@@ -53,6 +50,11 @@
     },
     "clearMocks": true,
     "testEnvironment": "jsdom"
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx}": [
+      "eslint"
+    ]
   },
   "size-limit": [
     {
