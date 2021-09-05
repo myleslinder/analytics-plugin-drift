@@ -13,7 +13,7 @@
   "version": "0.0.1",
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "yarn clean && microbundle --alias @=$pwd/src",
+    "build": "microbundle --alias @=$pwd/src",
     "start": "yarn build watch",
     "typecheck": "yarn tsc --noEmit",
     "lint": "eslint src --ext js,ts",
