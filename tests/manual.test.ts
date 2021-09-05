@@ -1,13 +1,11 @@
-/* eslint-disable @typescript-eslint/require-await */
 import Analytics from "analytics";
 import { analyticsDriftPlugin } from "../src/index";
 import { AnalyticsWithDriftPlugin } from "~/types";
 
-import { buildDriftMock, registeredHandlers } from "../src/__mocks__/drift";
+import { buildDriftMock } from "./__mocks__/drift";
 
 const assignTo = () => {
   window.drift = buildDriftMock();
-  console.log("loaded drift from script");
 };
 jest.mock("../src/index", () => {
   const mockWindow = jest.mock("../src/loadScript", () => {
@@ -34,8 +32,6 @@ afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   //@ts-ignore
   window.driftt = undefined;
-
-  //resetRegisteredHandlers();
 });
 
 describe("Manual loading", () => {
@@ -100,16 +96,18 @@ describe("Manual loading", () => {
         ];
         mocks.forEach((mock) => expect(mock).not.toHaveBeenCalled());
         analytics.plugins.drift.ready();
-        window.drift.on.mock.calls.forEach(
-          // eslint-disable-next-line @typescript-eslint/no-misused-promises
-          async ([eventName, handler = async () => undefined]: [
-            string,
-            () => Promise<void>
-          ]) => {
-            if (eventName === "ready") {
-              await handler();
+        await Promise.all(
+          (window.drift.on as jest.Mock).mock.calls.map(
+            async ([eventName, handler = () => Promise.resolve()]: [
+              string,
+              () => Promise<void>
+            ]) => {
+              if (eventName === "ready") {
+                return await handler();
+              }
+              return Promise.resolve();
             }
-          }
+          )
         );
         await analytics.track(
           trackedEvents[1].name,

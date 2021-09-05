@@ -177,11 +177,7 @@ export const DriftEventPayloads = {
   ],
 };
 
-export const registeredHandlers: {
-  [K in keyof Drift.EventPayloads]?: (() => void)[];
-} = {};
-
-const driftmock: DriftInstance = {
+const driftmock: () => DriftInstance = () => ({
   hasInitialized: false,
   SNIPPET_VERSION: "",
   identify: jest.fn(
@@ -244,16 +240,14 @@ const driftmock: DriftInstance = {
   },
   apiReady: false,
   chatReady: false,
-};
-driftmock.load = jest.fn(
-  function (this: DriftInstance, _: string) {
-    this.hasInitialized = true;
-  }.bind(driftmock)
-);
+});
 
-export const clearMocks = () => {
-  jest.clearAllMocks();
-};
 export const buildDriftMock = () => {
-  return { ...driftmock };
+  const mock = driftmock();
+  mock.load = jest.fn(
+    function (this: DriftInstance, _: string) {
+      this.hasInitialized = true;
+    }.bind(mock)
+  );
+  return mock;
 };

@@ -23,7 +23,6 @@ export function analyticsDriftPlugin({
 
   async function callBaseMethod(payload: AnalyticsMethodParams["payload"]) {
     assert(!!window.drift);
-    console.log("base metohd", payload.type);
     if (payload.type === "page") {
       window.drift.page();
     } else if (payload.type === "track") {
@@ -129,7 +128,6 @@ export function analyticsDriftPlugin({
     initialize: async (p: AnalyticsMethodParams) => {
       if (scriptLoad === "load") {
         const loaded = loadScript();
-        console.log("loaded=", loaded);
         if (loaded) {
           if (identityType === "userAttributes") {
             window.drift.load(driftId);
@@ -149,7 +147,6 @@ export function analyticsDriftPlugin({
               eventHistory = eventHistory.filter(
                 (event) => event.payload.type !== "identify"
               );
-              console.log(eventHistory);
             }
 
             if (!window.drift.hasInitialized) {
@@ -177,8 +174,11 @@ export function analyticsDriftPlugin({
       eventHistory = await handleEvent(checkIsLoaded(), p, eventHistory);
     },
     identify: async (p: AnalyticsMethodParams) => {
-      console.log("identify");
       eventHistory = await handleEvent(checkIsLoaded(), p, eventHistory);
+      // console.log(
+      //   p.payload.type === "identify" && p.payload.userId,
+      //   eventHistory
+      // );
     },
     loaded: () => {
       return isBrowser;

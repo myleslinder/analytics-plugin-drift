@@ -1,16 +1,10 @@
-/* eslint-disable @typescript-eslint/require-await */
 import Analytics from "analytics";
 import { analyticsDriftPlugin } from "../src/index";
 
-import {
-  buildDriftMock,
-  clearMocks,
-  registeredHandlers,
-} from "../src/__mocks__/drift";
+import { buildDriftMock } from "./__mocks__/drift";
 
 const assignTo = () => {
   window.drift = buildDriftMock();
-  console.log("loaded drift from script");
 };
 jest.mock("../src/index", () => {
   const mockWindow = jest.mock("../src/loadScript", () => {
@@ -28,14 +22,12 @@ jest.mock("../src/index", () => {
 // NSFW: https://www.youtube.com/watch?v=VHdJ9bbAfpc
 describe("We do da loading", () => {
   beforeEach(() => {
-    //clearMocks();
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     //@ts-ignore
     window.drift = undefined;
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     //@ts-ignore
     window.driftt = undefined;
-    console.log("here before");
   });
 
   test("it loads drift", async () => {
@@ -55,15 +47,19 @@ describe("We do da loading", () => {
 
     await new Promise<void>((resolve) => {
       analytics.on("ready", async () => {
-        //await Promise.all(registeredHandlers?.ready.map((h) => h()));
         expect(jest.isMockFunction(window.drift.on)).toBe(true);
         expect(window.drift.on).toHaveBeenCalledTimes(1);
-        window.drift.on.mock.calls.forEach(
-          ([eventName, handler = () => undefined]: [string, () => void]) => {
-            if (eventName === "ready") {
-              handler();
+        expect((window.drift.on as jest.Mock).mock.calls).toHaveLength(1);
+        await Promise.all(
+          (window.drift.on as jest.Mock).mock.calls.map(
+            ([eventName, handler = () => undefined]: [string, () => void]) => {
+              if (eventName === "ready") {
+                return handler();
+              } else {
+                return Promise.resolve();
+              }
             }
-          }
+          )
         );
         resolve();
       });
@@ -75,7 +71,6 @@ describe("We do da loading", () => {
 
   test("it forwards calls placed before load completes", async () => {
     expect(window.drift).toBe(undefined);
-    expect(registeredHandlers).toMatchObject({});
     const plugin = analyticsDriftPlugin({
       driftId: "",
       identityType: "identify",
@@ -90,36 +85,41 @@ describe("We do da loading", () => {
     });
     await analytics.identify("someId", { fakeAttr: 1 });
     await analytics.track("Some Event", { fakeProp: 1 });
+
     return new Promise<void>((resolve) => {
-      analytics.on("ready", async () => {
+      analytics.on("ready", () => {
         resolve();
       });
-    }).then(() => {
+    }).then(async () => {
       expect(window.drift).not.toBe(undefined);
       expect(window.drift.load).toHaveBeenCalledTimes(1);
       expect(jest.isMockFunction(window.drift.on)).toBe(true);
       expect(window.drift.on).toHaveBeenCalledTimes(1);
       expect(window.drift.identify).not.toHaveBeenCalled();
       expect(window.drift.track).not.toHaveBeenCalled();
-      window.drift.on.mock.calls.forEach(
-        // eslint-disable-next-line @typescript-eslint/no-misused-promises
-        async ([eventName, handler = async () => undefined]: [
-          string,
-          () => Promise<void>
-        ]) => {
-          if (eventName === "ready") {
-            await handler();
+      await Promise.all(
+        (window.drift.on as jest.Mock).mock.calls.map(
+          async ([eventName, handler = () => Promise.resolve()]: [
+            string,
+            () => Promise<void>
+          ]) => {
+            if (eventName === "ready") {
+              return await handler();
+            } else {
+              return Promise.resolve();
+            }
           }
-        }
+        )
       );
       expect(window.drift.identify).toHaveBeenCalledTimes(1);
       expect(window.drift.track).toHaveBeenCalledTimes(1);
+      await analytics.reset();
     });
   });
 
   test("it handles signed identity calls", async () => {
-    const jwtResolver = jest.fn(
-      async (userId: string) => `someFakeJwt:${userId}`
+    const jwtResolver = jest.fn(async (userId: string) =>
+      Promise.resolve(`someFakeJwt:${userId}`)
     );
     const plugin = analyticsDriftPlugin({
       driftId: "",
@@ -140,7 +140,8 @@ describe("We do da loading", () => {
           fake: 1,
         },
       },
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
 
     await analytics.identify(userId, { fakeAttr: 1 });
 
@@ -157,15 +158,19 @@ describe("We do da loading", () => {
         expect(jwtResolver).toHaveBeenCalledTimes(1);
         expect(jwtResolver).toHaveBeenCalledWith(userId);
         expect(jest.isMockFunction(window.drift.on)).toBe(true);
-
+        expect((window.drift.on as jest.Mock).mock.calls).toHaveLength(1);
         await Promise.all(
-          window.drift.on.mock.calls.map(([eventName, handler]) => {
-            return handler();
-          })
+          (window.drift.on as jest.Mock).mock.calls.map(
+            ([_, handler]: [unknown, () => Promise<void>]) => {
+              return handler();
+            }
+          )
         );
         expect(window.drift.track).toHaveBeenCalledTimes(1);
+        await analytics.reset();
       });
     };
+
     return await afterward();
   });
 
@@ -183,21 +188,26 @@ describe("We do da loading", () => {
       plugins: [plugin],
     });
 
-    await analytics.identify("someId", { fakeAttr: 1 });
-    await analytics.track("Some Event", { fakeProp: 1 });
     await new Promise<void>((resolve) => {
       analytics.on("ready", async () => {
+        expect(jest.isMockFunction(window.drift.on)).toBe(true);
         await Promise.all(
-          window.drift.on.mock.calls.map(([eventName, handler]) => {
-            return handler();
-          })
+          (window.drift.on as jest.Mock).mock.calls.map(
+            ([_, handler]: [unknown, () => Promise<void>]) => {
+              return handler();
+            }
+          )
         );
+        await analytics.identify("someId", { fakeAttr: 1 });
+        await analytics.track("Some Event", { fakeProp: 1 });
         resolve();
       });
     });
+
     expect(window.drift).not.toBe(undefined);
     expect(window.drift.load).toHaveBeenCalledTimes(1);
     expect(window.drift.identify).toHaveBeenCalledTimes(1);
-    expect(window.drift.track).toHaveBeenCalledTimes(1);
+    expect(window.drift.track).toHaveBeenCalled();
+    await analytics.reset();
   });
 });

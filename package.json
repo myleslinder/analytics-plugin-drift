@@ -16,10 +16,11 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "yarn clean && microbundle --alias @=$pwd/src",
+    "build": "yarn lint && yarn test && yarn clean && microbundle --alias @=$pwd/src",
     "start": "yarn build watch",
-    "typecheck": "yarn build --noEmit",
+    "typecheck": "yarn tsc --noEmit",
     "lint": "eslint src --ext js,ts",
+    "lint:test": "eslint tests --ext js,ts",
     "test": "jest",
     "size": "size-limit",
     "analyze": "size-limit --why",

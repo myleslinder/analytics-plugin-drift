@@ -12,6 +12,7 @@ export interface AnalyticsWithDriftPlugin extends AnalyticsInstance {
       ready: () => void;
     };
   } & AnalyticsInstance["plugins"];
+  initialUser?: Record<string, unknown>;
 }
 
 declare global {

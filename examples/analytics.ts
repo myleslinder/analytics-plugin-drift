@@ -1,17 +1,18 @@
 import Analytics from "analytics";
-import { DriftEventPayloads, DriftPluginEventHandlers } from "@/drift";
-import analyticsDriftPlugin from "@/analyticsDriftPlugin";
+import { DriftEventPayloads } from "~/types/drift";
+
+import { analyticsDriftPlugin } from "~/index";
+import { DriftPluginEventHandlers } from "~/types";
 
 const driftEventPlugin: DriftPluginEventHandlers = {
   "campaign:click": ({ eventPayload: { payload } }) => {
     console.log(payload.campaignId);
   },
-  startConversation: ({ instance }) => {
-    console.log("Start Conversation");
-    void instance.track("Start Conversation");
+  startConversation: async ({ instance }) => {
+    await instance.track("Start Conversation");
   },
-  emailCapture: ({ instance, eventPayload: { payload } }) => {
-    void instance.identify(payload.data.email);
+  emailCapture: async ({ instance, eventPayload: { payload } }) => {
+    await instance.identify(payload.data.email);
   },
 };
 
@@ -21,7 +22,7 @@ const analytics = Analytics({
   debug: false,
   plugins: [
     analyticsDriftPlugin({
-      driftId: "",
+      driftId: "someIdhere",
       identityType: "userAttributes",
       scriptLoad: "manual",
       page: false,
