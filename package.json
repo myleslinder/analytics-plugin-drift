@@ -58,12 +58,12 @@
   },
   "size-limit": [
     {
-      "path": "dist/index.cjs.production.min.js",
-      "limit": "10 KB"
+      "path": "dist/index.cjs.js",
+      "limit": "1.5 KB"
     },
     {
-      "path": "dist/index.esm.js",
-      "limit": "10 KB"
+      "path": "dist/index.module.js",
+      "limit": "1.5 KB"
     }
   ]
 }
